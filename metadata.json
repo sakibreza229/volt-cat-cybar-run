@@ -1,0 +1,8 @@
+{
+  "name": "Remix Volt Fox: Parallax Runner",
+  "description": "An arcade endless runner featuring a pixel art cyber fox, multi-layer parallax scrolling, responsive jump and slide physics, dynamic drone hazards, and synth sound effects.",
+  "requestFramePermissions": [],
+  "majorCapabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
+}
