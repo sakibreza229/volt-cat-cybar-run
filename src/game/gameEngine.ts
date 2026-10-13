@@ -11,11 +11,13 @@ import {
   Collectible,
   Particle,
   GameScore,
+  GameMode,
 } from '../types/game';
 import { drawVoltCat, drawObstacle, drawCollectibleShard } from './pixelSprites';
 import { ParallaxSystem } from './parallaxLayers';
 import { StarFallSystem } from './starFall';
 import { soundSynth } from '../audio/synthAudio';
+import { GAME_MODES, getStoredMode, saveScoreRecord, setStoredMode, getStoredHighScore } from './modeConfig';
 
 // Physics Configuration
 const GRAVITY = 0.76;
@@ -23,18 +25,19 @@ const FAST_DROP_GRAVITY = 1.95;
 const JUMP_VELOCITY = -13.2;
 const DOUBLE_JUMP_VELOCITY = -11.0;
 const VARIABLE_JUMP_DAMPING = 0.45;
-const BASE_SPEED = 6.8;
-const MAX_SPEED = 14.5;
+const DEFAULT_BASE_SPEED = 6.8;
 const DEFAULT_GROUND_Y = 330;
 
 export class GameEngine {
   public state: GameState = 'MENU';
+  public mode: GameMode = getStoredMode();
   public score: GameScore = {
     distance: 0,
     shards: 0,
     score: 0,
     highScore: 0,
-    speed: BASE_SPEED,
+    speed: GAME_MODES[getStoredMode()]?.baseSpeed || 6.8,
+    mode: getStoredMode(),
   };
 
   public virtualWidth: number = 960;
@@ -84,6 +87,7 @@ export class GameEngine {
   // Callback to update UI React state
   public onScoreUpdate?: (score: GameScore) => void;
   public onStateChange?: (state: GameState) => void;
+  public onImmortalChange?: (isImmortal: boolean) => void;
 
   constructor() {
     this.parallax = new ParallaxSystem();
@@ -123,12 +127,24 @@ export class GameEngine {
     return { width: this.virtualWidth, height: this.virtualHeight, groundY: this.groundY };
   }
 
+  public setGameMode(mode: GameMode) {
+    this.mode = mode;
+    this.score.mode = mode;
+    setStoredMode(mode);
+    const modeConfig = GAME_MODES[mode] || GAME_MODES.intermediate;
+    if (this.state === 'MENU') {
+      this.score.speed = modeConfig.baseSpeed;
+    }
+  }
+
   public startGame() {
+    const modeConfig = GAME_MODES[this.mode] || GAME_MODES.intermediate;
     this.state = 'PLAYING';
     this.score.distance = 0;
     this.score.shards = 0;
     this.score.score = 0;
-    this.score.speed = BASE_SPEED;
+    this.score.speed = modeConfig.baseSpeed;
+    this.score.mode = this.mode;
 
     this.fox.y = this.groundY - 38;
     this.fox.vy = 0;
@@ -143,7 +159,7 @@ export class GameEngine {
     this.collectibles = [];
     this.particles = [];
     this.lastObstacleSpawnDistance = 0;
-    this.nextObstacleMinDistance = 240;
+    this.nextObstacleMinDistance = 240 * modeConfig.minGapFactor;
     this.lastMilestoneTriggered = 0;
 
     // Snapshot existing record to beat for this run
@@ -163,13 +179,45 @@ export class GameEngine {
       this.onStateChange?.(this.state);
     } else if (this.state === 'PAUSED') {
       this.state = 'PLAYING';
-      soundSynth.startAmbientPulse(this.score.speed / BASE_SPEED);
+      const modeBase = GAME_MODES[this.mode]?.baseSpeed || DEFAULT_BASE_SPEED;
+      soundSynth.startAmbientPulse(this.score.speed / modeBase);
       this.onStateChange?.(this.state);
     }
   }
 
   public restartGame() {
     this.startGame();
+  }
+
+  public returnToHome() {
+    this.state = 'MENU';
+    soundSynth.stopAmbientPulse();
+    this.fox.y = this.groundY - 38;
+    this.fox.vy = 0;
+    this.fox.isGrounded = true;
+    this.fox.canDoubleJump = true;
+    this.fox.isSliding = false;
+    this.fox.overdriveTime = 0;
+    this.fox.invincibleFlashTimer = 0;
+    this.fox.animState = 'RUN';
+
+    this.obstacles = [];
+    this.collectibles = [];
+    this.particles = [];
+    this.lastObstacleSpawnDistance = 0;
+
+    if (this.score.distance > 0 || this.score.score > 0) {
+      saveScoreRecord(this.score, this.mode);
+    }
+    this.score.highScore = getStoredHighScore(this.mode);
+    this.score.distance = 0;
+    this.score.shards = 0;
+    this.score.score = 0;
+    const modeConfig = GAME_MODES[this.mode] || GAME_MODES.intermediate;
+    this.score.speed = modeConfig.baseSpeed;
+
+    this.onStateChange?.(this.state);
+    this.onScoreUpdate?.({ ...this.score });
   }
 
   // --- INPUT HANDLERS ---
@@ -240,16 +288,31 @@ export class GameEngine {
   }
 
   /**
-   * Secret System: Toggles immortality mode.
-   * When active, the cat cannot die, all obstacles shatter on contact,
-   * the game never enters GAME_OVER, and the run continues indefinitely.
+   * Secret Feature: Toggles Infinity Shield (invulnerability mode).
+   * Activated via Ctrl + Alt + S.
+   * When active, the cat cannot die, an ethereal quantum forcefield surrounds the cat,
+   * all obstacles shatter on contact, the game never enters GAME_OVER, and the run continues indefinitely.
    */
   public toggleImmortality(): boolean {
     this.isImmortal = !this.isImmortal;
+    soundSynth.playShieldToggle(this.isImmortal);
     if (this.isImmortal) {
-      soundSynth.playShard(1);
-      this.spawnExplosion(this.fox.x + 24, this.fox.y + 16, '#00F0FF', 14);
+      // Cosmic shield burst particle explosion
+      this.spawnExplosion(this.fox.x + 24, this.fox.y + 16, '#00F0FF', 22);
+      this.spawnExplosion(this.fox.x + 24, this.fox.y + 16, '#FDE047', 14);
+
+      // If toggled during Game Over, revive the cat immediately!
+      if (this.state === 'GAME_OVER') {
+        this.state = 'PLAYING';
+        this.fox.animState = 'RUN';
+        this.fox.vy = 0;
+        this.fox.y = this.groundY - this.fox.height;
+        this.onStateChange?.(this.state);
+        const modeBase = GAME_MODES[this.mode]?.baseSpeed || DEFAULT_BASE_SPEED;
+        soundSynth.startAmbientPulse(this.score.speed / modeBase);
+      }
     }
+    this.onImmortalChange?.(this.isImmortal);
     return this.isImmortal;
   }
 
@@ -327,8 +390,10 @@ export class GameEngine {
     this.lastTime = time;
     this.animTime += delta * 1000;
 
+    const modeConfig = GAME_MODES[this.mode] || GAME_MODES.intermediate;
+
     // Ambient background speed during menus or full runner speed during play
-    const activeSpeed = this.state === 'PLAYING' ? this.score.speed : BASE_SPEED * 0.4;
+    const activeSpeed = this.state === 'PLAYING' ? this.score.speed : modeConfig.baseSpeed * 0.4;
     this.parallax.update(activeSpeed, delta, this.score.score);
     this.starFall.update(delta);
 
@@ -339,9 +404,9 @@ export class GameEngine {
       return;
     }
 
-    // 1. Dynamic Speed Progression (Increases gradually with distance)
+    // 1. Dynamic Speed Progression (Increases gradually with distance based on selected mode)
     const speedRatio = Math.min(this.score.distance / 2500, 1);
-    this.score.speed = BASE_SPEED + (MAX_SPEED - BASE_SPEED) * speedRatio;
+    this.score.speed = modeConfig.baseSpeed + (modeConfig.maxSpeed - modeConfig.baseSpeed) * speedRatio;
 
     // 2. Fox Physics & Animation
     this.updateFox(delta);
@@ -366,11 +431,11 @@ export class GameEngine {
     // 6. Particle Physics
     this.updateParticles(delta);
 
-    // 7. Score Calculation
+    // 7. Score Calculation with Mode Multiplier
     this.score.distance += this.score.speed * delta * 2.5;
     const basePts = Math.floor(this.score.distance);
     const shardPts = this.score.shards * 75;
-    this.score.score = basePts + shardPts;
+    this.score.score = Math.floor((basePts + shardPts) * modeConfig.scoreMultiplier);
 
     // Check if player broke their old high score record!
     // If player had a saved record (> 0), triggers when exceeding it.
@@ -475,8 +540,27 @@ export class GameEngine {
       this.spawnDustPuff(this.fox.x + 4, currentGround, 1);
     }
 
+    // Secret Infinity Shield ambient quantum sparkles
+    if (this.isImmortal && Math.random() < 0.3) {
+      const angle = Math.random() * Math.PI * 2;
+      const r = 27;
+      this.particles.push({
+        x: this.fox.x + 24 + Math.cos(angle) * r,
+        y: this.fox.y + 18 + Math.sin(angle) * r,
+        vx: (Math.random() - 0.5) * 1.5,
+        vy: (Math.random() - 0.5) * 1.5 - 0.5,
+        size: Math.random() * 2.5 + 1,
+        color: Math.random() < 0.6 ? '#00F0FF' : '#FDE047',
+        alpha: 0.9,
+        life: 0,
+        maxLife: 15,
+        shape: 'spark',
+      });
+    }
+
     // Running Animation frames (Speed adjusted)
-    this.fox.animTimer += delta * 15 * (this.score.speed / BASE_SPEED);
+    const modeBase = GAME_MODES[this.mode]?.baseSpeed || DEFAULT_BASE_SPEED;
+    this.fox.animTimer += delta * 15 * (this.score.speed / modeBase);
     this.fox.animFrame = this.fox.animTimer;
   }
 
@@ -590,8 +674,9 @@ export class GameEngine {
     }
 
     this.lastObstacleSpawnDistance = currentDist;
-    // Vary gap based on speed to ensure reactable intervals
-    this.nextObstacleMinDistance = 280 + Math.random() * 220 + (this.score.speed * 12);
+    // Vary gap based on speed and selected mode to ensure tuned reaction intervals
+    const modeConfig = GAME_MODES[this.mode] || GAME_MODES.intermediate;
+    this.nextObstacleMinDistance = (280 + Math.random() * 220 + (this.score.speed * 12)) * modeConfig.minGapFactor;
 
     const rand = Math.random();
     const spawnX = this.virtualWidth + 60;
@@ -784,6 +869,9 @@ export class GameEngine {
     this.fox.animState = 'CRASH';
     soundSynth.stopAmbientPulse();
     soundSynth.playCrash();
+
+    // Persist score in history and check records
+    saveScoreRecord(this.score, this.mode);
 
     // Stumble crash particles
     this.spawnExplosion(this.fox.x + 24, this.fox.y + 18, '#EF4444', 30);

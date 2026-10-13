@@ -383,6 +383,52 @@ class SoundSynthesizer {
     playBeat();
   }
 
+  /**
+   * Secret Infinity Shield Activation / Deactivation Chime
+   */
+  public playShieldToggle(active: boolean) {
+    if (this.isMuted) return;
+    this.initContext();
+    if (!this.ctx || !this.masterGain) return;
+
+    const now = this.ctx.currentTime;
+    if (active) {
+      // Cosmic rising quantum chord (C5 -> G5 -> C6)
+      const freqs = [523.25, 783.99, 1046.5];
+      freqs.forEach((freq, idx) => {
+        if (!this.ctx || !this.masterGain) return;
+        const osc = this.ctx.createOscillator();
+        const gain = this.ctx.createGain();
+        osc.type = 'sine';
+        osc.frequency.setValueAtTime(freq, now + idx * 0.06);
+        osc.frequency.exponentialRampToValueAtTime(freq * 1.25, now + idx * 0.06 + 0.15);
+
+        gain.gain.setValueAtTime(0.2, now + idx * 0.06);
+        gain.gain.exponentialRampToValueAtTime(0.001, now + idx * 0.06 + 0.22);
+
+        osc.connect(gain);
+        gain.connect(this.masterGain);
+        osc.start(now + idx * 0.06);
+        osc.stop(now + idx * 0.06 + 0.25);
+      });
+    } else {
+      // Gentle power-down frequency fall
+      const osc = this.ctx.createOscillator();
+      const gain = this.ctx.createGain();
+      osc.type = 'triangle';
+      osc.frequency.setValueAtTime(600, now);
+      osc.frequency.exponentialRampToValueAtTime(150, now + 0.18);
+
+      gain.gain.setValueAtTime(0.2, now);
+      gain.gain.exponentialRampToValueAtTime(0.001, now + 0.18);
+
+      osc.connect(gain);
+      gain.connect(this.masterGain);
+      osc.start(now);
+      osc.stop(now + 0.2);
+    }
+  }
+
   public stopAmbientPulse() {
     this.isBgmPlaying = false;
     if (this.bgmTimer) {

@@ -116,11 +116,19 @@ export class ParallaxSystem {
 
   // Celestial Chrome Moon
   private moonX: number = 840; // Initial rise in upper right sky
-  private readonly moonSpeed: number = 8.5; // Smooth, slow celestial traversal
+  private readonly moonSpeed: number = 2.8; // Tranquil, slow celestial traversal
   private moonActive: boolean = true;
   private moonPauseTimer: number = 0;
   private width: number = 960;
   private height: number = 420;
+
+  // Dynamic Biome Transition System (Smooth crossfade across all layers)
+  private currentBiomeIdx: number = 0;
+  private targetBiomeIdx: number = 0;
+  private transitionBlend: number = 0;
+  private isTransitioning: boolean = false;
+  private transitionTimer: number = 0;
+  private readonly transitionDuration: number = 2.4; // 2.4s smooth cinematic crossfade
 
   constructor() {
     this.initStars();
@@ -153,6 +161,11 @@ export class ParallaxSystem {
     this.moonX = this.width - 120;
     this.moonActive = true;
     this.moonPauseTimer = 0;
+    this.currentBiomeIdx = 0;
+    this.targetBiomeIdx = 0;
+    this.transitionBlend = 0;
+    this.isTransitioning = false;
+    this.transitionTimer = 0;
     this.initSkywayCars();
   }
 
@@ -225,7 +238,27 @@ export class ParallaxSystem {
     const frameScale = delta * 60;
     this.distance += speed * delta * 60;
 
-    // 0. Celestial Chrome Moon: Moves slowly along a real parabolic arc from the opposite direction of the cat (right to left)
+    // 0. Smooth global biome color transition across all layers
+    if (this.isTransitioning) {
+      this.transitionTimer += delta;
+      this.transitionBlend = Math.min(1, this.transitionTimer / this.transitionDuration);
+      if (this.transitionBlend >= 1) {
+        this.currentBiomeIdx = this.targetBiomeIdx;
+        this.transitionBlend = 0;
+        this.isTransitioning = false;
+      }
+    } else if (scorePoints >= 500) {
+      const stage = Math.floor(scorePoints / 500);
+      const neededIdx = stage % BIOMES.length;
+      if (neededIdx !== this.currentBiomeIdx) {
+        this.targetBiomeIdx = neededIdx;
+        this.isTransitioning = true;
+        this.transitionTimer = 0;
+        this.transitionBlend = 0;
+      }
+    }
+
+    // 0.5. Celestial Chrome Moon: Moves slowly along a real parabolic arc from the opposite direction of the cat (right to left)
     if (this.moonActive) {
       this.moonX -= this.moonSpeed * delta;
       if (this.moonX < -60) {
@@ -346,51 +379,44 @@ export class ParallaxSystem {
   }
 
   /**
-   * Only change the color theme after gaining 500++ points!
-   * Stays completely solid and unchanged during 0 - 499 points.
-   * At 500+, 1000+, 1500+ etc., crossfades smoothly for a brief moment and locks to the new theme.
+   * Returns current and target biome themes with smooth crossfade blend ratio.
+   * Crossfades smoothly over 2.4 seconds when reaching each 500-point milestone,
+   * guaranteeing that ALL parallax layers transition synchronously with zero stutter.
    */
-  public getBiome(scorePoints: number): { current: BiomeTheme; next: BiomeTheme; blend: number } {
-    // Stage interval is 500 points
-    const STAGE_POINTS = 500;
-    const TRANSITION_POINTS = 40; // Brief 40-point smooth transition when crossing milestone
-
-    if (scorePoints < STAGE_POINTS) {
-      // Under 500 points: 100% stable initial theme (Midnight Cyberway)
+  public getBiome(scorePoints?: number): { current: BiomeTheme; next: BiomeTheme; blend: number } {
+    if (this.isTransitioning) {
       return {
-        current: BIOMES[0],
-        next: BIOMES[0],
-        blend: 0,
+        current: BIOMES[this.currentBiomeIdx],
+        next: BIOMES[this.targetBiomeIdx],
+        blend: this.transitionBlend,
       };
     }
 
-    // Above 500 points: milestone index = 1 for 500-999, 2 for 1000-1499, etc.
-    const stage = Math.floor(scorePoints / STAGE_POINTS);
-    const prevThemeIdx = (stage - 1) % BIOMES.length;
-    const newThemeIdx = stage % BIOMES.length;
-
-    const progressInStage = scorePoints % STAGE_POINTS;
-
-    if (progressInStage < TRANSITION_POINTS) {
-      // Smoothly crossfading from previous theme into new theme
-      const blend = progressInStage / TRANSITION_POINTS;
-      return {
-        current: BIOMES[prevThemeIdx],
-        next: BIOMES[newThemeIdx],
-        blend,
-      };
+    if (scorePoints !== undefined && scorePoints >= 500) {
+      const stage = Math.floor(scorePoints / 500);
+      const neededIdx = stage % BIOMES.length;
+      if (neededIdx !== this.currentBiomeIdx) {
+        return {
+          current: BIOMES[this.currentBiomeIdx],
+          next: BIOMES[neededIdx],
+          blend: this.transitionBlend,
+        };
+      }
     }
 
-    // Solidly locked on the new theme until the next 500-point milestone!
     return {
-      current: BIOMES[newThemeIdx],
-      next: BIOMES[newThemeIdx],
+      current: BIOMES[this.currentBiomeIdx],
+      next: BIOMES[this.currentBiomeIdx],
       blend: 0,
     };
   }
 
-  public getActiveAccent(scorePoints: number): string {
-    return getActiveBiomeAccentColor(scorePoints);
+  public getActiveAccent(scorePoints?: number): string {
+    const { current, next, blend } = this.getBiome(scorePoints);
+    if (blend > 0) {
+      return blendColors(current.accentColor, next.accentColor, blend);
+    }
+    return current.accentColor;
   }
 
   /**
@@ -429,16 +455,15 @@ export class ParallaxSystem {
 
     // 4. LAYER 2: MIDGROUND SKYWAY VIADUCT (Speed factor 0.22)
     // Seamless modulo using exact pier spacing (220px)
-    // Preserves the overbridge intact, with randomized two-way hover-car traffic
+    // Smoothly transitions colors with the rest of the biome!
     const midOffset = ((this.distance * 0.22) % PIER_SPACING + PIER_SPACING) % PIER_SPACING;
-    this.renderMidgroundSkyway(ctx, width, groundY, midOffset, current, animTime);
-
-    // Note: Foreground poles/sticks removed to keep the runner's main path clear and readable!
+    this.renderMidgroundSkyway(ctx, width, groundY, midOffset, current, next, blend, animTime);
 
     // 5. GROUND TRACK & LEV-RAIL HIGHWAY (Speed factor 1.0)
     // Seamless modulo using exact tile width (40px)
+    // Smoothly transitions colors with the rest of the biome!
     const groundOffset = ((this.distance * 1.0) % GROUND_TILE_WIDTH + GROUND_TILE_WIDTH) % GROUND_TILE_WIDTH;
-    this.renderGroundTrack(ctx, width, height, groundY, groundOffset, current, animTime, speed);
+    this.renderGroundTrack(ctx, width, height, groundY, groundOffset, current, next, blend, animTime, speed);
   }
 
   private renderSky(
@@ -991,20 +1016,26 @@ export class ParallaxSystem {
     width: number,
     groundY: number,
     offset: number,
-    theme: BiomeTheme,
+    curr: BiomeTheme,
+    next: BiomeTheme,
+    blend: number,
     animTime: number
   ) {
-    ctx.fillStyle = theme.midTowerColor;
+    const midTowerColor = blend > 0 ? blendColors(curr.midTowerColor, next.midTowerColor, blend) : curr.midTowerColor;
+    const groundEdgeGlow = blend > 0 ? blendColors(curr.groundEdgeGlow, next.groundEdgeGlow, blend) : curr.groundEdgeGlow;
+    const accentColor = blend > 0 ? blendColors(curr.accentColor, next.accentColor, blend) : curr.accentColor;
+
+    ctx.fillStyle = midTowerColor;
     const skywayY = groundY - 55;
     const skywayH = 10;
 
     // 1. Continuous Midground Transit Deck (Overbridge kept intact!)
     ctx.fillRect(0, skywayY, width, skywayH);
 
-    // Subtle edge glow on the skyway
-    ctx.fillStyle = theme.groundEdgeGlow + '55';
+    // Subtle edge glow on the skyway (blends smoothly)
+    ctx.fillStyle = groundEdgeGlow + '55';
     ctx.fillRect(0, skywayY, width, 2);
-    ctx.fillStyle = theme.midTowerColor;
+    ctx.fillStyle = midTowerColor;
 
     // 2. Low-profile Support Buttresses (Seamless loop with PIER_SPACING)
     const startX = -offset - PIER_SPACING;
@@ -1025,9 +1056,9 @@ export class ParallaxSystem {
       ctx.fill();
 
       // Subtle status accent dot
-      ctx.fillStyle = theme.accentColor + '88';
+      ctx.fillStyle = accentColor + '88';
       ctx.fillRect(x + 18, skywayY + 4, 6, 2);
-      ctx.fillStyle = theme.midTowerColor;
+      ctx.fillStyle = midTowerColor;
     }
 
     // 3. Dynamic Two-Way Random Hover-Car Traffic on the Overbridge
@@ -1057,8 +1088,8 @@ export class ParallaxSystem {
         ctx.fillStyle = '#EF4444';
         ctx.fillRect(car.x, carY + 1, 2, car.height - 2);
 
-        // Hover-jet Deck Glow Underneath
-        ctx.fillStyle = theme.accentColor + '65';
+        // Hover-jet Deck Glow Underneath (blends smoothly)
+        ctx.fillStyle = accentColor + '65';
         ctx.fillRect(car.x + 3, carY + car.height, car.width - 6, 1.5);
       } else {
         // Moving Right-to-Left:
@@ -1074,8 +1105,8 @@ export class ParallaxSystem {
         ctx.fillStyle = '#EF4444';
         ctx.fillRect(car.x + car.width - 2, carY + 1, 2, car.height - 2);
 
-        // Hover-jet Deck Glow Underneath
-        ctx.fillStyle = theme.accentColor + '65';
+        // Hover-jet Deck Glow Underneath (blends smoothly)
+        ctx.fillStyle = accentColor + '65';
         ctx.fillRect(car.x + 3, carY + car.height, car.width - 6, 1.5);
       }
     }
@@ -1087,15 +1118,20 @@ export class ParallaxSystem {
     height: number,
     groundY: number,
     offset: number,
-    theme: BiomeTheme,
+    curr: BiomeTheme,
+    next: BiomeTheme,
+    blend: number,
     animTime: number,
     speed: number
   ) {
-    // 1. Top Lev-Rail Glow Edge Line
+    const groundEdgeGlow = blend > 0 ? blendColors(curr.groundEdgeGlow, next.groundEdgeGlow, blend) : curr.groundEdgeGlow;
+    const groundGridColor = blend > 0 ? blendColors(curr.groundGridColor, next.groundGridColor, blend) : curr.groundGridColor;
+
+    // 1. Top Lev-Rail Glow Edge Line (Blends smoothly!)
     ctx.save();
-    ctx.shadowColor = theme.groundEdgeGlow;
+    ctx.shadowColor = groundEdgeGlow;
     ctx.shadowBlur = 10;
-    ctx.fillStyle = theme.groundEdgeGlow;
+    ctx.fillStyle = groundEdgeGlow;
     ctx.fillRect(0, groundY, width, 3);
     ctx.restore();
 
@@ -1110,11 +1146,11 @@ export class ParallaxSystem {
     ctx.fillStyle = groundGrad;
     ctx.fillRect(0, groundY + 4, width, height - groundY);
 
-    // 4. Animated Speed Chevrons / Magnetic Track Grid (Seamless modulo on GROUND_TILE_WIDTH)
+    // 4. Animated Speed Chevrons / Magnetic Track Grid (Seamless modulo on GROUND_TILE_WIDTH - Blends smoothly!)
     const tileW = GROUND_TILE_WIDTH;
     const startX = -offset - tileW;
 
-    ctx.fillStyle = theme.groundGridColor + '40';
+    ctx.fillStyle = groundGridColor + '40';
     for (let x = startX; x < width + tileW * 2; x += tileW) {
       // Perspective angled stripe
       ctx.beginPath();
@@ -1171,17 +1207,34 @@ export function getActiveBiomeAccentColor(scorePoints: number): string {
  * Utility to blend two hex color strings smoothly
  */
 export function blendColors(c1: string, c2: string, ratio: number): string {
-  const r1 = parseInt(c1.substring(1, 3), 16);
-  const g1 = parseInt(c1.substring(3, 5), 16);
-  const b1 = parseInt(c1.substring(5, 7), 16);
+  if (!c1 || !c2) return c1 || c2 || '#000000';
+  if (ratio <= 0) return c1;
+  if (ratio >= 1) return c2;
 
-  const r2 = parseInt(c2.substring(1, 3), 16);
-  const g2 = parseInt(c2.substring(3, 5), 16);
-  const b2 = parseInt(c2.substring(5, 7), 16);
+  const hex1 = c1.replace('#', '');
+  const hex2 = c2.replace('#', '');
 
-  const r = Math.round(r1 + (r2 - r1) * ratio);
-  const g = Math.round(g1 + (g2 - g1) * ratio);
-  const b = Math.round(b1 + (b2 - b1) * ratio);
+  const parseHex = (h: string) => {
+    if (h.length === 3) {
+      return [
+        parseInt(h[0] + h[0], 16),
+        parseInt(h[1] + h[1], 16),
+        parseInt(h[2] + h[2], 16),
+      ];
+    }
+    return [
+      parseInt(h.substring(0, 2), 16) || 0,
+      parseInt(h.substring(2, 4), 16) || 0,
+      parseInt(h.substring(4, 6), 16) || 0,
+    ];
+  };
+
+  const [r1, g1, b1] = parseHex(hex1);
+  const [r2, g2, b2] = parseHex(hex2);
+
+  const r = Math.max(0, Math.min(255, Math.round(r1 + (r2 - r1) * ratio)));
+  const g = Math.max(0, Math.min(255, Math.round(g1 + (g2 - g1) * ratio)));
+  const b = Math.max(0, Math.min(255, Math.round(b1 + (b2 - b1) * ratio)));
 
   return `#${r.toString(16).padStart(2, '0')}${g.toString(16).padStart(2, '0')}${b.toString(16).padStart(2, '0')}`;
 }

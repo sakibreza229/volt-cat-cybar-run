@@ -4,7 +4,8 @@
 
 import React, { useRef, useEffect, useState, useCallback } from 'react';
 import { GameEngine } from '../game/gameEngine';
-import { GameState, GameScore } from '../types/game';
+import { GameState, GameScore, GameMode } from '../types/game';
+import { getStoredMode } from '../game/modeConfig';
 import { HUD } from './HUD';
 import { StartScreen } from './StartScreen';
 import { GameOverModal } from './GameOverModal';
@@ -18,14 +19,33 @@ export const GameCanvas: React.FC = () => {
   const engineRef = useRef<GameEngine | null>(null);
 
   const [gameState, setGameState] = useState<GameState>('MENU');
+  const [gameMode, setGameMode] = useState<GameMode>(() => getStoredMode());
+  const [isModalOpen, setIsModalOpen] = useState<boolean>(false);
   const [score, setScore] = useState<GameScore>({
     distance: 0,
     shards: 0,
     score: 0,
     highScore: 0,
     speed: 6.8,
+    mode: getStoredMode(),
   });
   const [isMuted, setIsMuted] = useState<boolean>(soundSynth.getMuted());
+  const [isUiHidden, setIsUiHidden] = useState<boolean>(() => {
+    return localStorage.getItem('voltfox_hide_ui') === 'true';
+  });
+
+  const handleToggleHideUi = useCallback(() => {
+    setIsUiHidden((prev) => {
+      const next = !prev;
+      localStorage.setItem('voltfox_hide_ui', String(next));
+      return next;
+    });
+  }, []);
+
+  const handleSelectMode = useCallback((mode: GameMode) => {
+    setGameMode(mode);
+    engineRef.current?.setGameMode(mode);
+  }, []);
 
   // Initialize engine once
   useEffect(() => {
@@ -103,6 +123,7 @@ export const GameCanvas: React.FC = () => {
   useEffect(() => {
     const onKeyDown = (e: KeyboardEvent) => {
       if (e.repeat) return;
+      if (isModalOpen) return;
       const engine = engineRef.current;
       if (!engine) return;
 
@@ -128,6 +149,9 @@ export const GameCanvas: React.FC = () => {
         e.preventDefault();
         const nextMute = soundSynth.toggleMute();
         setIsMuted(nextMute);
+      } else if (e.code === 'KeyH' || e.key === 'h' || e.key === 'H') {
+        e.preventDefault();
+        handleToggleHideUi();
       }
     };
 
@@ -197,6 +221,10 @@ export const GameCanvas: React.FC = () => {
     engineRef.current?.restartGame();
   }, []);
 
+  const handleBackToHome = useCallback(() => {
+    engineRef.current?.returnToHome();
+  }, []);
+
   return (
     <div
       ref={containerRef}
@@ -214,46 +242,68 @@ export const GameCanvas: React.FC = () => {
             imageRendering: 'pixelated',
           }}
           onClick={() => {
-            if (gameState === 'MENU' || gameState === 'GAME_OVER') {
+            if (!isModalOpen && (gameState === 'MENU' || gameState === 'GAME_OVER')) {
               handleStart();
             }
           }}
         />
 
-        {/* In-Viewport Top HUD: Stats & Sound/Pause Controls (Only shown during gameplay, pause, and game over) */}
-        {gameState !== 'MENU' && (
-          <HUD
-            score={score}
-            isPaused={gameState === 'PAUSED'}
-            isMuted={isMuted}
-            onTogglePause={handleTogglePause}
-            onToggleMute={handleToggleMute}
-          />
-        )}
+        {/* In-Viewport Top HUD: Stats & Sound/Pause/UI Controls */}
+        <HUD
+          score={score}
+          isPaused={gameState === 'PAUSED'}
+          isMuted={isMuted}
+          isUiHidden={isUiHidden}
+          showStats={gameState !== 'MENU'}
+          showPause={gameState !== 'MENU'}
+          onTogglePause={handleTogglePause}
+          onToggleMute={handleToggleMute}
+          onToggleHideUi={handleToggleHideUi}
+        />
 
         {/* State Modals */}
         {gameState === 'MENU' && (
-          <StartScreen highScore={score.highScore} onStart={handleStart} />
+          <StartScreen
+            highScore={score.highScore}
+            selectedMode={gameMode}
+            onSelectMode={handleSelectMode}
+            onStart={handleStart}
+            onModalStateChange={setIsModalOpen}
+          />
         )}
 
         {gameState === 'PAUSED' && (
-          <PauseModal onResume={handleTogglePause} onRestart={handleRestart} />
+          <PauseModal
+            onResume={handleTogglePause}
+            onRestart={handleRestart}
+            onHome={handleBackToHome}
+            highScore={score.highScore}
+            onModalStateChange={setIsModalOpen}
+          />
         )}
 
         {gameState === 'GAME_OVER' && (
-          <GameOverModal score={score} onRestart={handleRestart} />
+          <GameOverModal
+            score={score}
+            onRestart={handleRestart}
+            onHome={handleBackToHome}
+          />
         )}
 
-        {/* Desktop Keyboard Controls Legend inside Game Viewport at bottom */}
-        <footer className="absolute bottom-2 left-1/2 -translate-x-1/2 z-10 pointer-events-none hidden md:flex items-center gap-3 text-[11px] font-mono text-slate-400/80 bg-slate-950/70 backdrop-blur-xs px-3.5 py-1 rounded-full border border-slate-800/60 tracking-wide select-none shadow-sm">
-          <span><kbd className="px-1.5 py-0.5 rounded bg-slate-900 border border-slate-700/60 text-slate-300">Space</kbd> / <kbd className="px-1.5 py-0.5 rounded bg-slate-900 border border-slate-700/60 text-slate-300">W</kbd> Jump</span>
-          <span className="text-slate-600" aria-hidden="true">·</span>
-          <span><kbd className="px-1.5 py-0.5 rounded bg-slate-900 border border-slate-700/60 text-slate-300">Down</kbd> / <kbd className="px-1.5 py-0.5 rounded bg-slate-900 border border-slate-700/60 text-slate-300">S</kbd> Slide</span>
-          <span className="text-slate-600" aria-hidden="true">·</span>
-          <span><kbd className="px-1.5 py-0.5 rounded bg-slate-900 border border-slate-700/60 text-slate-300">P</kbd> Pause</span>
-          <span className="text-slate-600" aria-hidden="true">·</span>
-          <span><kbd className="px-1.5 py-0.5 rounded bg-slate-900 border border-slate-700/60 text-slate-300">M</kbd> Mute</span>
-        </footer>
+        {/* Desktop Keyboard Controls Legend inside Game Viewport at bottom (Hidden when UI toggle is active) */}
+        {!isUiHidden && (
+          <footer className="absolute bottom-2 left-1/2 -translate-x-1/2 z-10 pointer-events-none hidden md:flex items-center gap-3 text-[11px] font-mono text-slate-400/80 bg-slate-950/70 backdrop-blur-xs px-3.5 py-1 rounded-full border border-slate-800/60 tracking-wide select-none shadow-sm transition-opacity duration-200">
+            <span><kbd className="px-1.5 py-0.5 rounded bg-slate-900 border border-slate-700/60 text-slate-300">Space</kbd> / <kbd className="px-1.5 py-0.5 rounded bg-slate-900 border border-slate-700/60 text-slate-300">W</kbd> Jump</span>
+            <span className="text-slate-600" aria-hidden="true">·</span>
+            <span><kbd className="px-1.5 py-0.5 rounded bg-slate-900 border border-slate-700/60 text-slate-300">Down</kbd> / <kbd className="px-1.5 py-0.5 rounded bg-slate-900 border border-slate-700/60 text-slate-300">S</kbd> Slide</span>
+            <span className="text-slate-600" aria-hidden="true">·</span>
+            <span><kbd className="px-1.5 py-0.5 rounded bg-slate-900 border border-slate-700/60 text-slate-300">P</kbd> Pause</span>
+            <span className="text-slate-600" aria-hidden="true">·</span>
+            <span><kbd className="px-1.5 py-0.5 rounded bg-slate-900 border border-slate-700/60 text-slate-300">M</kbd> Mute</span>
+            <span className="text-slate-600" aria-hidden="true">·</span>
+            <span><kbd className="px-1.5 py-0.5 rounded bg-slate-900 border border-slate-700/60 text-slate-300">H</kbd> UI</span>
+          </footer>
+        )}
       </div>
 
       {/* On-Screen Mobile Touch Buttons */}

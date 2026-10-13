@@ -99,4 +99,38 @@ export interface GameScore {
   score: number;
   highScore: number;
   speed: number;
+  mode?: GameMode;
+}
+
+export type GameMode = 'beginner' | 'intermediate' | 'advanced' | 'expert';
+
+export interface GameModeConfig {
+  id: GameMode;
+  name: string;
+  badge: string;
+  tagline: string;
+  description: string;
+  baseSpeed: number;
+  maxSpeed: number;
+  minGapFactor: number;
+  scoreMultiplier: number;
+  color: string;
+  accentHex: string;
+}
+
+export interface ScoreHistoryItem {
+  id: string;
+  timestamp: number;
+  score: number;
+  distance: number;
+  shards: number;
+  mode: GameMode;
+}
+
+export interface CareerStats {
+  totalRuns: number;
+  totalDistance: number;
+  totalShards: number;
+  bestScoreOverall: number;
+  bestScoresByMode: Record<GameMode, number>;
 }

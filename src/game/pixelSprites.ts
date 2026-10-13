@@ -165,10 +165,13 @@ function renderCatFace(
     ctx.fillStyle = isOverdrive ? '#00F0FF' : PALETTE.NOSE_PINK;
     ctx.fillRect(headX + 5, headY + 1, 3, 1);
   } else {
-    // Crash shock / drooped ears
-    ctx.fillStyle = '#EF4444';
-    ctx.fillRect(headX - 1, headY - 2, 4, 4);
-    ctx.fillRect(headX + 9, headY - 2, 4, 4);
+    // Crash shock / drooped startled ears
+    ctx.fillStyle = darkFur;
+    ctx.fillRect(headX, headY - 1, 4, 3);
+    ctx.fillRect(headX + 9, headY - 1, 4, 3);
+    ctx.fillStyle = PALETTE.NOSE_PINK;
+    ctx.fillRect(headX + 1, headY, 2, 2);
+    ctx.fillRect(headX + 10, headY, 2, 2);
   }
 
   // 4. LARGE EXPRESSIVE FELINE CAT EYES
@@ -386,6 +389,9 @@ function renderCatSpin(ctx: CanvasRenderingContext2D, frame: number, isOverdrive
   ctx.translate(22, 16);
   ctx.rotate(angle);
 
+  const mainFur = isOverdrive ? '#38BDF8' : PALETTE.FUR_MAIN;
+  const darkFur = isOverdrive ? '#0284C7' : PALETTE.FUR_DARK;
+
   // Glowing energy ring around cat righting-reflex spin
   ctx.save();
   ctx.strokeStyle = isOverdrive ? '#FDE047' : '#00F0FF';
@@ -395,18 +401,33 @@ function renderCatSpin(ctx: CanvasRenderingContext2D, frame: number, isOverdrive
   ctx.stroke();
   ctx.restore();
 
-  // Tucked cat acrobat ball with cute curled paws and perked ears
-  ctx.fillStyle = isOverdrive ? '#38BDF8' : PALETTE.FUR_MAIN;
+  // Tucked cat acrobat ball with cute curled paws, perked cat ears, and tabby stripes
+  ctx.fillStyle = mainFur;
   ctx.fillRect(-12, -12, 24, 24);
-  ctx.fillStyle = PALETTE.FUR_DARK;
-  ctx.fillRect(-9, -9, 18, 18);
+  // Rounded curved skull corners
+  ctx.fillRect(-10, -14, 20, 28);
+  ctx.fillRect(-14, -10, 28, 20);
+
+  // Tabby stripes
+  ctx.fillStyle = darkFur;
+  ctx.fillRect(-10, -6, 4, 12);
+  ctx.fillRect(6, -6, 4, 12);
+
+  // White belly and paw socks
   ctx.fillStyle = PALETTE.FUR_WHITE;
-  ctx.fillRect(-4, -4, 8, 8);
-  // Pink nose / paws in center of curled ball
+  ctx.fillRect(-5, -5, 10, 10);
+
+  // Pink cat nose & pads
   ctx.fillStyle = PALETTE.NOSE_PINK;
   ctx.fillRect(-2, -2, 4, 4);
-  ctx.fillStyle = PALETTE.VISOR_CYAN;
-  ctx.fillRect(-6, -6, 4, 4);
+
+  // Cute perked cat ears curled in acrobatic spin
+  ctx.fillStyle = darkFur;
+  ctx.fillRect(-12, -14, 5, 4);
+  ctx.fillRect(7, -14, 5, 4);
+  ctx.fillStyle = isOverdrive ? '#00F0FF' : PALETTE.NOSE_PINK;
+  ctx.fillRect(-10, -13, 2, 2);
+  ctx.fillRect(8, -13, 2, 2);
 }
 
 /**
@@ -468,35 +489,34 @@ function renderCatSlide(ctx: CanvasRenderingContext2D, frame: number, isOverdriv
 function renderCatCrash(ctx: CanvasRenderingContext2D, frame: number) {
   const shake = (frame % 3) * 2 - 2;
 
-  ctx.fillStyle = '#EF4444'; // Red error outline
-  ctx.fillRect(4 + shake, 8, 30, 16);
-  ctx.fillStyle = PALETTE.ARMOR_DARK;
-  ctx.fillRect(24 + shake, 2, 18, 16);
+  // Shocked cat arched back & torso
+  ctx.fillStyle = PALETTE.FUR_MAIN;
+  ctx.fillRect(4 + shake, 8, 28, 14);
+  // Tabby stripes
+  ctx.fillStyle = PALETTE.FUR_DARK;
+  ctx.fillRect(8 + shake, 9, 3, 7);
+  ctx.fillRect(16 + shake, 9, 3, 7);
 
-  // Shocked cat ears
-  ctx.fillStyle = '#EF4444';
-  ctx.fillRect(25 + shake, -3, 4, 5);
-  ctx.fillRect(33 + shake, -3, 4, 5);
+  // Soft white chest bib & belly
+  ctx.fillStyle = PALETTE.FUR_WHITE;
+  ctx.fillRect(16 + shake, 13, 14, 8);
 
-  // Startled wide cat eyes (O.O)
-  ctx.fillStyle = '#FFFFFF';
-  ctx.fillRect(28 + shake, 4, 5, 5);
-  ctx.fillRect(35 + shake, 4, 5, 5);
-  ctx.fillStyle = '#EF4444';
-  ctx.fillRect(30 + shake, 5, 2, 3);
-  ctx.fillRect(37 + shake, 5, 2, 3);
-
-  // Pink nose & whiskers
+  // Front & rear paw socks
+  ctx.fillStyle = PALETTE.FUR_WHITE;
+  ctx.fillRect(2 + shake, 20, 8, 4);
+  ctx.fillRect(26 + shake, 20, 8, 4);
   ctx.fillStyle = PALETTE.NOSE_PINK;
-  ctx.fillRect(33 + shake, 9, 3, 2);
-  ctx.fillStyle = '#FFFFFF';
-  ctx.fillRect(36 + shake, 9, 5, 1);
-  ctx.fillRect(36 + shake, 11, 4, 1);
+  ctx.fillRect(4 + shake, 23, 4, 1);
+  ctx.fillRect(28 + shake, 23, 4, 1);
 
-  // Static glitch bars
+  // Startled round cat face with flattened ears (:3 mouth, wide saucer eyes)
+  renderCatFace(ctx, 22 + shake, 3, PALETTE.FUR_MAIN, PALETTE.FUR_DARK, '#EF4444', false, 'CRASH');
+
+  // Red error outline & static glitch bars
+  ctx.fillStyle = '#EF4444';
+  ctx.fillRect(0 + shake, 15, 46, 2);
   ctx.fillStyle = '#00F0FF';
-  ctx.fillRect(0, 14, 48, 2);
-  ctx.fillRect(8, 22, 36, 2);
+  ctx.fillRect(6 + shake, 24, 38, 2);
 }
 
 /**
