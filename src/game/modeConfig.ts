@@ -1,9 +1,11 @@
 import { GameMode, GameModeConfig, ScoreHistoryItem, CareerStats, GameScore } from '../types/game';
 
+export const MODE_ORDER: GameMode[] = ['beginner', 'intermediate', 'advanced', 'expert'];
+
 export const GAME_MODES: Record<GameMode, GameModeConfig> = {
   beginner: {
     id: 'beginner',
-    name: 'Beginner',
+    name: 'Novice',
     badge: 'NOVICE',
     tagline: 'Gentle speed & wide obstacle gaps',
     description: 'Forgiving reaction windows with slower starting velocity and wider obstacle spacing. 0.8x score.',
@@ -16,7 +18,7 @@ export const GAME_MODES: Record<GameMode, GameModeConfig> = {
   },
   intermediate: {
     id: 'intermediate',
-    name: 'Intermediate',
+    name: 'Balanced',
     badge: 'BALANCED',
     tagline: 'Classic cyber tempo & standard obstacles',
     description: 'The balanced runner experience. Standard pacing, classic hazard patterns, and 1.0x score.',
@@ -29,7 +31,7 @@ export const GAME_MODES: Record<GameMode, GameModeConfig> = {
   },
   advanced: {
     id: 'advanced',
-    name: 'Advanced',
+    name: 'Veteran',
     badge: 'VETERAN',
     tagline: 'High velocity & rapid hazards (+50% score)',
     description: 'Accelerated track velocity and closer obstacle clusters. Demands keen anticipation. 1.5x score bonus.',
@@ -42,7 +44,7 @@ export const GAME_MODES: Record<GameMode, GameModeConfig> = {
   },
   expert: {
     id: 'expert',
-    name: 'Expert',
+    name: 'Hyperdrive',
     badge: 'HYPERDRIVE',
     tagline: 'Blistering hyper speed & razor timing (2.0x score)',
     description: 'Extreme kinetic velocity with relentless hazard density. Requires frame-perfect reflex timing. 2.0x score bonus.',
@@ -58,9 +60,16 @@ export const GAME_MODES: Record<GameMode, GameModeConfig> = {
 const MODE_STORAGE_KEY = 'voltfox_selected_mode';
 const HISTORY_STORAGE_KEY = 'voltfox_score_history';
 
+// Clear legacy persistent mode so Balanced is always active by default on load
+try {
+  localStorage.removeItem(MODE_STORAGE_KEY);
+} catch {
+  // fallback
+}
+
 export function getStoredMode(): GameMode {
   try {
-    const saved = localStorage.getItem(MODE_STORAGE_KEY);
+    const saved = sessionStorage.getItem(MODE_STORAGE_KEY);
     if (saved && saved in GAME_MODES) {
       return saved as GameMode;
     }
@@ -72,7 +81,7 @@ export function getStoredMode(): GameMode {
 
 export function setStoredMode(mode: GameMode): void {
   try {
-    localStorage.setItem(MODE_STORAGE_KEY, mode);
+    sessionStorage.setItem(MODE_STORAGE_KEY, mode);
   } catch {
     // fallback
   }

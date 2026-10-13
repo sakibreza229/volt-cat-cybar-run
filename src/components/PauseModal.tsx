@@ -9,6 +9,7 @@ import React, { useState, useEffect } from 'react';
 import { Play, RotateCcw, Home } from 'lucide-react';
 import { HelpModal } from './HelpModal';
 import { ScoresModal } from './ScoresModal';
+import { AboutModal } from './AboutModal';
 
 interface PauseModalProps {
   onResume: () => void;
@@ -27,19 +28,23 @@ export const PauseModal: React.FC<PauseModalProps> = ({
 }) => {
   const [isHelpOpen, setIsHelpOpen] = useState(false);
   const [isScoresOpen, setIsScoresOpen] = useState(false);
+  const [isAboutOpen, setIsAboutOpen] = useState(false);
 
-  // Notify parent if Help or Scores modal is active so global key listeners don't clash
+  // Notify parent if Help or Scores or About modal is active so global key listeners don't clash
   useEffect(() => {
-    const hasActiveSubModal = isHelpOpen || isScoresOpen;
+    const hasActiveSubModal = isHelpOpen || isScoresOpen || isAboutOpen;
     onModalStateChange?.(hasActiveSubModal);
-  }, [isHelpOpen, isScoresOpen, onModalStateChange]);
+  }, [isHelpOpen, isScoresOpen, isAboutOpen, onModalStateChange]);
+
+  const isSubModalOpen = isHelpOpen || isScoresOpen || isAboutOpen;
 
   return (
     <>
-      <div
-        className="absolute inset-0 z-30 flex flex-col items-center justify-center bg-slate-950/75 backdrop-blur-xs p-6 select-none animate-in fade-in duration-150"
-        onClick={(e) => e.stopPropagation()}
-      >
+      {!isSubModalOpen && (
+        <div
+          className="absolute inset-0 z-30 flex flex-col items-center justify-center bg-slate-950/75 backdrop-blur-xs p-6 select-none animate-in fade-in duration-150"
+          onClick={(e) => e.stopPropagation()}
+        >
         <div className="max-w-xs w-full p-6 text-center space-y-5 shadow-2xl">
           {/* Header */}
           <div className="space-y-1">
@@ -85,7 +90,7 @@ export const PauseModal: React.FC<PauseModalProps> = ({
           </div>
 
           {/* Bottom Text Links (styled as clean text, not buttons) */}
-          <div className="pt-2 px-4 border-t border-slate-800/80 flex items-center justify-center gap-4 text-xs font-mono text-slate-400">
+          <div className="pt-2 border-t border-slate-800/80 flex items-center justify-center gap-3.5 text-xs font-mono text-slate-400">
             <button
               type="button"
               onClick={() => setIsHelpOpen(true)}
@@ -101,9 +106,18 @@ export const PauseModal: React.FC<PauseModalProps> = ({
             >
               Scores
             </button>
+            <span className="text-slate-600 select-none" aria-hidden="true">·</span>
+            <button
+              type="button"
+              onClick={() => setIsAboutOpen(true)}
+              className="hover:text-cyan-400 transition-colors cursor-pointer tracking-wider decoration-slate-700 hover:decoration-cyan-400"
+            >
+              About
+            </button>
           </div>
         </div>
       </div>
+    )}
 
       {/* Sub-modals */}
       <HelpModal
@@ -114,6 +128,10 @@ export const PauseModal: React.FC<PauseModalProps> = ({
         isOpen={isScoresOpen}
         onClose={() => setIsScoresOpen(false)}
         currentHighScore={highScore}
+      />
+      <AboutModal
+        isOpen={isAboutOpen}
+        onClose={() => setIsAboutOpen(false)}
       />
     </>
   );

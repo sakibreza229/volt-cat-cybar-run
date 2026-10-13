@@ -13,6 +13,35 @@
   }
 }
 
+@keyframes logo-shimmer {
+  0% {
+    background-position: 200% center;
+  }
+  100% {
+    background-position: -200% center;
+  }
+}
+
+@keyframes ambient-glow {
+  0%, 100% {
+    opacity: 0.35;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 0.65;
+    transform: scale(1.04);
+  }
+}
+
+.animate-shimmer {
+  background-size: 250% auto;
+  animation: logo-shimmer 3.8s cubic-bezier(0.4, 0, 0.2, 1) infinite;
+}
+
+.animate-ambient-glow {
+  animation: ambient-glow 4s ease-in-out infinite;
+}
+
 /* Prevent unwanted browser mobile gestures like pull-to-refresh on game canvas */
 html, body {
   overscroll-behavior: none;
