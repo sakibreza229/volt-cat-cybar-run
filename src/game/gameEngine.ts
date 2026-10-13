@@ -145,6 +145,7 @@ export class GameEngine {
     this.score.score = 0;
     this.score.speed = modeConfig.baseSpeed;
     this.score.mode = this.mode;
+    this.score.crashReason = undefined;
 
     this.fox.y = this.groundY - 38;
     this.fox.vy = 0;
@@ -215,6 +216,7 @@ export class GameEngine {
     this.score.score = 0;
     const modeConfig = GAME_MODES[this.mode] || GAME_MODES.intermediate;
     this.score.speed = modeConfig.baseSpeed;
+    this.score.crashReason = undefined;
 
     this.onStateChange?.(this.state);
     this.onScoreUpdate?.({ ...this.score });
@@ -612,7 +614,7 @@ export class GameEngine {
             this.score.score += 250;
           } else {
             // Player Crash!
-            this.handleCrash();
+            this.handleCrash(obs);
             return;
           }
         }
@@ -863,12 +865,33 @@ export class GameEngine {
     );
   }
 
-  private handleCrash() {
+  private handleCrash(obs?: Obstacle) {
     if (this.isImmortal) return;
     this.state = 'GAME_OVER';
     this.fox.animState = 'CRASH';
     soundSynth.stopAmbientPulse();
     soundSynth.playCrash();
+
+    let reason = 'Hazard Impact';
+    if (obs) {
+      switch (obs.type) {
+        case 'SCANNER_DRONE':
+          reason = 'Scanner Drone';
+          break;
+        case 'SPIKE_CLUSTER':
+          reason = 'Spike Cluster';
+          break;
+        case 'QUANTUM_PILLAR':
+          reason = 'Quantum Pillar';
+          break;
+        case 'LASER_BARRIER':
+          reason = 'Laser Barrier';
+          break;
+        default:
+          reason = 'Hazard Impact';
+      }
+    }
+    this.score.crashReason = reason;
 
     // Persist score in history and check records
     saveScoreRecord(this.score, this.mode);

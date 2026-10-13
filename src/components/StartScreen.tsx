@@ -87,9 +87,9 @@ export const StartScreen: React.FC<StartScreenProps> = ({
           <header className="w-full flex items-center justify-between text-xs font-mono select-none">
         {/* Personal Best on top left (clean text style with filled trophy icon) */}
         <div className="flex items-center gap-2 text-slate-400">
-          <TrophyIcon className="w-4 h-4 text-amber-400" glow={true} />
+          <TrophyIcon className="w-4 h-4 text-cyan-400" variant="cyan" glow={true} />
           <span className="text-slate-500 uppercase tracking-wider text-[11px]">Best:</span>
-          <span className="text-amber-400 font-semibold tabular-nums">
+          <span className="text-cyan-400 font-semibold tabular-nums">
             {highScore > 0 ? `${highScore.toLocaleString()} PTS` : '--'}
           </span>
         </div>

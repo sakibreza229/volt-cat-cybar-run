@@ -100,7 +100,7 @@ export const AboutModal: React.FC<AboutModalProps> = ({ isOpen, onClose }) => {
         {/* Credits, Version & Copyright */}
         <div className="p-4 rounded-xl bg-slate-900/60 border border-slate-800/70 text-center text-xs text-slate-400 font-mono leading-relaxed space-y-2">
           <div className="flex flex-wrap items-center justify-center gap-2 text-slate-300">
-            <span>Made with <Heart className="w-3.5 h-3.5 text-rose-500 fill-rose-500 inline-block align-middle mx-0.5" /> for retro arcade enthusiasts</span>
+            <span>Made with <Heart className="w-3.5 h-3.5 text-cyan-400 fill-cyan-400 inline-block align-middle mx-0.5 drop-shadow-[0_0_6px_rgba(6,182,212,0.5)]" /> for retro arcade enthusiasts</span>
             <span className="text-slate-600 hidden sm:inline" aria-hidden="true">·</span>
             <span className="text-cyan-400 font-semibold">v1.2</span>
           </div>

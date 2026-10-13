@@ -6,7 +6,7 @@
  */
 
 import React, { useState, useEffect } from 'react';
-import { Play, RotateCcw, Home } from 'lucide-react';
+import { Play, RotateCcw, LogOut } from 'lucide-react';
 import { HelpModal } from './HelpModal';
 import { ScoresModal } from './ScoresModal';
 import { AboutModal } from './AboutModal';
@@ -81,11 +81,11 @@ export const PauseModal: React.FC<PauseModalProps> = ({
             <button
               type="button"
               onClick={onHome}
-              title="Back to Home"
-              aria-label="Back to Home"
+              title="Exit to Main Menu"
+              aria-label="Exit to Main Menu"
               className="group flex items-center justify-center h-13 bg-slate-800 hover:bg-slate-700/90 active:scale-95 border border-slate-700/60 hover:border-slate-500 text-cyan-400 hover:text-cyan-300 rounded-xl transition-all cursor-pointer shadow-sm"
             >
-              <Home className="w-5 h-5 transition-transform group-hover:scale-110" />
+              <LogOut className="w-5 h-5 transition-transform group-hover:translate-x-0.5" />
             </button>
           </div>
 

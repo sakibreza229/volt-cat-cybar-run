@@ -100,6 +100,7 @@ export interface GameScore {
   highScore: number;
   speed: number;
   mode?: GameMode;
+  crashReason?: string;
 }
 
 export type GameMode = 'beginner' | 'intermediate' | 'advanced' | 'expert';
